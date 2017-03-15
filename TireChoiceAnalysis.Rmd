@@ -1,0 +1,216 @@
+---
+title: "Tire Choice (Conjoint) Analysis"
+author: "Wedam Nyaaba"
+date: "March 14, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+**Required Packages**
+
+- ggplot2: For visualization of data
+- conjoint: For market conjoint analysis
+
+ &nbsp;
+ &nbsp;
+ 
+ \newpage
+ 
+```{r}
+# Clean current environment
+rm(list = ls())
+
+# Load conjoint package
+require(conjoint)
+```
+Begin Analysis
+
+# 1. Read in TireStudy Data Set for Preprocessing
+
+```{r}
+# Load Data
+df<- read.csv("TireStudy.csv")
+
+# Create Profiles (a combination of tire features) dataframe
+ 
+profiles <- df[,2:5]
+save(profiles, file="profiles.RData")
+# Create customer rankings dataframe
+
+custRanking <- t(df[,6:10])
+save(custRanking, file="Rankings.RData")
+
+colnames(custRanking) = c("profl-1","profl-2","profl-3","profl-4","profl-5","profl-6","profl-7",
+                         "profl-8","profl-9","profl-10","profl-11","profl-12","profl-13","profl-14"
+                         ,"profl-15","profl-16","profl-17","profl-18")
+rownames(custRanking) = c("cust-1","cust-2","cust-3","cust-4","cust-5")
+
+```
+# 2. View Data Structure
+```{r}
+# Show profiles
+profiles
+
+str(profiles)
+```
+
+```{r}
+# show custranking frame
+head(custRanking)
+
+str(custRanking)
+```
+# 3. Exploratory Analysis of Data
+
+This is arbitrarily carried out for only customer 1  to observe how they rated tires based on their features: brand, price, life, and hazard. 
+
+Here, it is good to add their respective rankings to the profiles dataframe.
+
+```{r}
+# Rename the profiles
+combinedDF = profiles
+
+# Add customer 1 and 2 rankings as new columns
+combinedDF$cust1_Ranking <- as.vector(t(custRanking[1,]))
+combinedDF$cust3_Ranking <- as.vector(t(custRanking[3,]))
+
+str(combinedDF)
+```
+```{r}
+# Load ggplot2 package
+require(ggplot2)
+
+```
+
+```{r}
+# Show boxplot of customer 1 ranking by Tire Brand 
+ggplot(combinedDF, aes(x=Brand, y=cust1_Ranking, fill=Brand)) + geom_boxplot() + theme_classic() + labs(title = "Customer-1 Ranking by Tire Brand", x = "Brand", y = "Ranking") + theme(text= element_text(size=15)) + theme(plot.title = element_text(hjust=0.5))
+
+```
+
+```{r}
+# Show boxplot of customer 1 ranking by Tire Price 
+ggplot(combinedDF, aes(x=Price, y=cust1_Ranking, fill=Price)) + geom_boxplot() + theme_classic() + labs(title = "Customer-1 Ranking by Tire Price", x = "Price", y = "Ranking") + theme(text= element_text(size=15)) + theme(plot.title = element_text(hjust=0.5))
+```
+```{r}
+# Show boxplot of customer 1 ranking by Tire Life 
+ggplot(combinedDF, aes(x=Life, y=cust1_Ranking, fill=Life)) + geom_boxplot() + theme_classic() + labs(title = "Customer-1 Ranking by Tire Life", x = "Life (in miles)", y = "Ranking") + theme(text= element_text(size=15)) + theme(plot.title = element_text(hjust=0.5))
+```
+```{r}
+# Show boxplot of customer 1 ranking by Tire Life 
+ggplot(combinedDF, aes(x=Hazard, y=cust1_Ranking, fill=Hazard)) + geom_boxplot() + theme_classic() + labs(title = "Customer-1 Ranking by Tire Hazard", x = "Hazard", y = "Ranking") + theme(text= element_text(size=15)) + theme(plot.title = element_text(hjust=0.5))
+```
+
+# 4. Conjoint Analysis of Tire Rankings 
+
+## 4.1 Customer 1 Conjoint Analysis
+
+### 4.1.1 Obtain Attribute Importance
+
+```{r}
+# Create a level object that to hold categories of the features
+
+level <- c(levels(combinedDF$Brand),levels(combinedDF$Price),levels(combinedDF$Life)
+           ,levels(combinedDF$Hazard))
+level
+```
+
+```{r}
+# Calculate the % importance of each attribute (or feature)
+FeatImp <- caImportance(y = custRanking[1,], x = profiles)
+names(FeatImp) = names(profiles)
+FeatImp
+```
+Visualize Feature Importance in a Bar plot
+```{r}
+barplot(FeatImp,col = "blue", width = 0.1, ylim = c(0, 60), xlab = "Attribute", ylab = "% Importance", main = "Feature/Attribute Importance")
+```
+### 4.1.2 Obtain part-worths/utilities (how much each product attribute contributes to the overall customer preference)
+
+```{r}
+partWorths <- caUtilities(y = combinedDF$cust1_Ranking, x = combinedDF[1:4], z = level)
+
+```
+```{r}
+names(partWorths) = c("Intercept", level)
+
+# Show part worths rounding to the nearest hundredth
+formatC(partWorths[-1], format = 'f', digits = 2)
+```
+Visualize part-worths as follows.
+
+```{r, fig.width=9, fig.height=7}
+# Ceate a vector to assign the same color to categories of the same attribute
+cols <- c(1,1,1,2,2,2,3,3,3,4,4)
+
+# Horizontal barplot
+
+plot <- barplot(partWorths[-1],las = 1, horiz = TRUE, xlim = c(-5, 7),axisnames = FALSE,
+        col = cols, main = "Part-Worths (Utilities)")
+
+text(x = 5, y= plot, cex = 1.0,
+     labels= paste(level,
+                   "(",
+                   formatC(partWorths[-1], format = 'f', digits = 2),
+                   ')'))
+# Add legend
+
+legend(-2.9, 13,toupper(names(profiles)), pch =0, cex = 1.0, fill = 1:length(FeatImp))
+
+
+```
+
+## 4.2 Customer-3 Conjoint Analysis
+
+### 4.2.1 Obtain Attribute Importance
+
+
+```{r}
+# Calculate the % importance of each attribute (or feature)
+FeatImp_3 <- caImportance(y = custRanking[3,], x = profiles)
+names(FeatImp_3) = names(profiles)
+FeatImp_3
+```
+Visualize Feature Importance in a Bar plot
+```{r}
+barplot(FeatImp_3,col = "blue", width = 0.1, ylim = c(0, 70), xlab = "Attribute", ylab = "% Importance", main = "Feature/Attribute Importance")
+```
+### 4.1.2 Obtain part-worths/utilities (how much each product attribute contributes to the overall customer preference)
+
+```{r}
+partWorths_3 <- caUtilities(y = combinedDF$cust3_Ranking, x = combinedDF[1:4], z = level)
+
+```
+```{r}
+names(partWorths_3) = c("Intercept", level)
+
+# Show part worths rounding to the nearest hundredth
+formatC(partWorths_3[-1], format = 'f', digits = 2)
+```
+Visualize part-worths as follows.
+```{r, fig.width=9, fig.height=7}
+# Ceate a vector to assign the same color to categories of the same attribute
+cols <- c(1,1,1,2,2,2,3,3,3,4,4)
+
+# Horizontal barplot
+
+plot <- barplot(partWorths_3[-1],las = 1, horiz = TRUE, xlim = c(-3, 5),axisnames = FALSE,
+        col = cols, main = "Part-Worths (Utilities)")
+
+text(x =4, y= plot, cex = 1.0,
+     labels= paste(level,
+                   "(",
+                   formatC(partWorths_3[-1], format = 'f', digits = 2),
+                   ')'))
+# Add legend
+
+legend(-2.9, 13,toupper(names(profiles)), pch =0, cex = 1.0, fill = 1:length(FeatImp_3))
+
+```
+
+
+
+
